@@ -445,9 +445,9 @@ def get_args():
     parser.add_argument('-st', '--step-limit', help='Steps', required=True)
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument(
-        '-i', '--ignore', help='Comma-separated list of Pokémon names to ignore')
+        '-i', '--ignore', help='Comma-separated list of Pokémon names or IDs to ignore')
     group.add_argument(
-        '-o', '--only', help='Comma-separated list of Pokémon names to search')
+        '-o', '--only', help='Comma-separated list of Pokémon names or IDs to search')
     parser.add_argument(
         "-ar",
         "--auto_refresh",
@@ -596,8 +596,6 @@ def main():
     y = 0
     dx = 0
     dy = -1
-    origin_lat = FLOAT_LAT
-    origin_lon = FLOAT_LONG
     steplimit2 = steplimit**2
     for step in range(steplimit2):
         #starting at 0 index
@@ -632,7 +630,7 @@ def main():
 
 def process_step(args, api_endpoint, access_token, profile_response,
                  pokemonsJSON, ignore, only):
-    print('[+] Searching pokemons for location {} {}'.format(FLOAT_LAT, FLOAT_LONG))
+    print('[+] Searching for Pokemon at location {} {}'.format(FLOAT_LAT, FLOAT_LONG))
     origin = LatLng.from_degrees(FLOAT_LAT, FLOAT_LONG)
     step_lat = FLOAT_LAT
     step_long = FLOAT_LONG
@@ -669,7 +667,7 @@ def process_step(args, api_endpoint, access_token, profile_response,
 transform_from_wgs_to_gcj(Location(Fort.Latitude, Fort.Longitude))
                             if Fort.GymPoints and args.display_gym:
                                 gyms[Fort.FortId] = [Fort.Team, Fort.Latitude,
-                                                     Fort.Longitude]
+                                                     Fort.Longitude, Fort.GymPoints]
 
                             elif Fort.FortType \
                                 and args.display_pokestop:
@@ -685,12 +683,13 @@ transform_from_wgs_to_gcj(Location(Fort.Latitude, Fort.Longitude))
             break
 
     for poke in visible:
-        pokename = pokemonsJSON[str(poke.pokemon.PokemonId)]
+        pokeid = str(poke.pokemon.PokemonId)
+        pokename = pokemonsJSON[pokeid]
         if args.ignore:
-            if pokename.lower() in ignore:
+            if pokename.lower() in ignore or pokeid in ignore:
                 continue
         elif args.only:
-            if pokename.lower() not in only:
+            if pokename.lower() not in only and pokeid not in only:
                 continue
 
         disappear_timestamp = time.time() + poke.TimeTillHiddenMs \
@@ -853,11 +852,11 @@ def get_pokemarkers():
         if gym[0] == 0:
             color = "rgba(0,0,0,.4)"
         if gym[0] == 1:
-            color = "rgba(0, 0, 256, .4)"
+            color = "rgba(74, 138, 202, .6)"
         if gym[0] == 2:
-            color = "rgba(255, 0, 0, .4)"
+            color = "rgba(240, 68, 58, .6)"
         if gym[0] == 3:
-            color = "rgba(255, 255, 0, .4)"
+            color = "rgba(254, 217, 40, .6)"
 
         icon = 'static/forts/'+numbertoteam[gym[0]]+'_large.png'
         pokeMarkers.append({
@@ -867,7 +866,7 @@ def get_pokemarkers():
             'disappear_time': -1,
             'lat': gym[1],
             'lng': gym[2],
-            'infobox': "<div><center><small>Gym owned by:</small><br><b style='color:" + color + "'>Team " + numbertoteam[gym[0]] + "</b><br><img id='" + numbertoteam[gym[0]] + "' height='100px' src='"+icon+"'></center>"
+            'infobox': "<div><center><small>Gym owned by:</small><br><b style='color:" + color + "'>Team " + numbertoteam[gym[0]] + "</b><br><img id='" + numbertoteam[gym[0]] + "' height='100px' src='"+icon+"'><br>Prestige: " + str(gym[3]) + "</center>"
         })
     for stop_key in pokestops:
         stop = pokestops[stop_key]
@@ -875,10 +874,11 @@ def get_pokemarkers():
             pokeMarkers.append({
                 'type': 'lured_stop',
                 'key': stop_key,
+                'disappear_time': -1,
                 'icon': 'static/forts/PstopLured.png',
                 'lat': stop[0],
                 'lng': stop[1],
-                'infobox': 'Lured Pokestop, expires at' + stop[2],
+                'infobox': 'Lured Pokestop, expires at ' + stop[2],
             })
         else:
             pokeMarkers.append({
